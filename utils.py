@@ -1,5 +1,5 @@
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import landscape, letter, A3, A4, A5
+from reportlab.lib.pagesizes import landscape, portrait, letter, A3, A4, A5
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Flowable
@@ -465,7 +465,7 @@ def pdf_payable_report():
     dfItems['Quantidade'] = dfItems['quantity'].copy()
 
     styleSheet = getSampleStyleSheet()
-    doc = SimpleDocTemplate("{}_Débitos.pdf".format(datetime.today().date()))
+    doc = SimpleDocTemplate("reports/{}_Débitos.pdf".format(datetime.today().date()))
     doc.pagesize = landscape(A4)
     elements = []
 
@@ -560,6 +560,104 @@ def pdf_payable_report():
             elements.append(line)
     doc.build(elements)
 
+def pdf_delivery_report():
+    dfItems = pd.read_csv('data/items.csv', sep='\t')
+    dfClients = pd.read_csv('data/clients.csv', sep='\t').set_index('id')
+    dfProducts = pd.read_csv('data/products.csv', sep='\t').set_index('id')
+    dfCampaigns = pd.read_csv('data/campaigns.csv',sep='\t').set_index('id')
+
+    dfItems['Produto'] = (dfItems['product_id']
+                          .apply(lambda x: dfProducts.loc[x]['description']))
+    dfItems['Valor'] = (dfItems['product_id']
+                        .apply(lambda x: dfProducts.loc[x]['sale_price']))
+    dfItems['Valor com desconto'] = round(dfItems['Valor'] *
+                                          (1 - dfItems['discount']), 2)
+    dfItems['Desconto'] = dfItems['discount'].copy()
+    dfItems['Desconto'] = (round(dfItems['Desconto'], 2)*100).astype(str)+'%'
+    dfItems['Quantidade'] = dfItems['quantity'].copy()
+
+    styleSheet = getSampleStyleSheet()
+
+    for campaign_id in dfCampaigns.reset_index()['id'].unique():
+        doc = SimpleDocTemplate("reports/{}.pdf".format((dfCampaigns.loc[campaign_id]['description'])
+                                                        .strip(' ')
+                                                        .replace('/','_')))
+        doc.pagesize = landscape(A4)
+        elements = []
+
+        TxtCampaign = Paragraph('''<br /><b>{}</b>'''
+                                .format((dfCampaigns.loc[campaign_id]['description'])),
+                                styleSheet["Heading1"])
+        elements.append(TxtCampaign)
+
+        dfC = dfItems[dfItems['campaign_id'] == campaign_id]
+
+        totals = [0, 0]
+
+        for c_id in dfC['client_id'].unique():
+            dfClient = dfC[dfC['client_id'] == c_id]
+
+
+            TxtClient = Paragraph('''<b>{}</b>'''
+                                  .format(dfClients.loc[c_id]['name']),
+                                  styleSheet["BodyText"])
+            elements.append(TxtClient)
+
+            if (any(dfClient['discount'])>0):
+                header = dfClient[['Produto', 'Quantidade', 'Valor',
+                                       'Desconto','Valor com desconto']].columns.tolist()
+                header = [Paragraph('''<b>{}</b>'''.format(c),
+                                    styleSheet["BodyText"]) for c in header]
+                footer = ['TOTAL', '-', round(sum(dfClient['Valor']*dfClient['Quantidade']),2), '-',
+                            round(sum(dfClient['Valor com desconto']*dfClient['Quantidade']),2)]
+
+                data= [header] + round(dfClient[['Produto', 'Quantidade', 'Valor',
+                                       'Desconto','Valor com desconto']],2).astype(str).values.tolist() + [footer]
+            else:
+                header = dfClient[['Produto', 'Quantidade', 'Valor']].columns.tolist()
+                header = [Paragraph('''<b>{}</b>'''.format(c),
+                                    styleSheet["BodyText"]) for c in header]
+
+                footer = ['TOTAL', '-', round(sum(dfClient['Valor']),2)]
+
+                data= [header] + round(dfClient[['Produto', 'Quantidade', 'Valor']],2).astype(str).values.tolist() + [footer]
+
+            t=Table(data)
+
+            data_len = len(data)
+            for each in range(data_len):
+                if each % 2 == 0:
+                    bg_color = colors.whitesmoke
+                else:
+                    bg_color = colors.lavender
+
+                t.setStyle(TableStyle([('BACKGROUND', (0, each),
+                                       (-1, each), bg_color)]))
+            t.setStyle(TableStyle([('ALIGN',(0,0),(-1,-1),'LEFT'),
+                                   ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+                                   ('BACKGROUND',(0,0),(-1,0),colors.lightgrey)]))
+            elements.append(t)
+
+            totals[0] += (dfClient['Valor'] * dfClient['Quantidade']).sum()
+
+            totals[1] += (dfClient['Valor com desconto'] * dfClient['Quantidade']).sum()
+
+        TxtTotals0 = Paragraph('''<b>Total: R${}</b>'''.format(round(totals[0],2)), styleSheet["BodyText"])
+        elements.append(TxtTotals0)
+
+        TxtTotals1 = Paragraph('''<b>Total com Desconto: R${}</b>'''.format(round(totals[1],2)), styleSheet["BodyText"])
+        elements.append(TxtTotals1)
+
+        TxtLucro = Paragraph('''<b>Lucro: R${}</b>'''.format(round((totals[0]-totals[1]),2)), styleSheet["BodyText"])
+        elements.append(TxtLucro)
+        newLine = Paragraph('''<br />''', styleSheet["BodyText"])
+        elements.append(newLine)
+
+        line = MCLine(500)
+        elements.append(line)
+        doc.build(elements)
+
+
 def display():
     while True:
         print('\n Menu:')
@@ -570,7 +668,8 @@ def display():
         print('5 - Add new campaign')
         print('6 - Add new revendor (in progress)')
         print('7 - Show orders report')
-        print('8 - Show payable report and geberate PDF')
+        print('8 - Show payable report and generate PDF')
+        print('9 - Generate PDF delivery report')
         print('0 - Finish')
         op = int(input('Option:'))
         if op == 0:
@@ -592,5 +691,7 @@ def display():
         elif op == 8:
             pdf_payable_report()
             payable_report()
+        elif op == 9:
+            pdf_delivery_report()
         else:
             print('\n !!! Invalid option !!!')
