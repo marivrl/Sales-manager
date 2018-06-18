@@ -595,6 +595,15 @@ def pdf_delivery_report():
         totals = [0, 0]
 
         for c_id in dfC['client_id'].unique():
+            doc1 = SimpleDocTemplate("reports/{}_{}.pdf".format(dfClients.loc[c_id]['name'],
+                                                                (dfCampaigns.loc[campaign_id]['description'])
+                                                                .strip(' ')
+                                                                .replace('/','_')))
+            doc1.pagesize = landscape(A4)
+            elements1 = []
+
+            elements1.append(TxtCampaign)
+
             dfClient = dfC[dfC['client_id'] == c_id]
 
 
@@ -602,6 +611,7 @@ def pdf_delivery_report():
                                   .format(dfClients.loc[c_id]['name']),
                                   styleSheet["BodyText"])
             elements.append(TxtClient)
+            elements1.append(TxtClient)
 
             if (any(dfClient['discount'])>0):
                 header = dfClient[['Produto', 'Quantidade', 'Valor',
@@ -637,10 +647,13 @@ def pdf_delivery_report():
                                    ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
                                    ('BACKGROUND',(0,0),(-1,0),colors.lightgrey)]))
             elements.append(t)
+            elements1.append(t)
 
             totals[0] += (dfClient['Valor'] * dfClient['Quantidade']).sum()
 
             totals[1] += (dfClient['Valor com desconto'] * dfClient['Quantidade']).sum()
+
+            doc1.build(elements1)
 
         TxtTotals0 = Paragraph('''<b>Total: R${}</b>'''.format(round(totals[0],2)), styleSheet["BodyText"])
         elements.append(TxtTotals0)

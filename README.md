@@ -4,6 +4,7 @@ Sales-manager repo
 This is a personal project. I sell some catalog products and need some automatation to generate reports and compute orders. So, I developed this simple project to help me in these tasks according to my needs. It is still being improved.
 
 ## Data format:
+*Obs:* all files are used as *.tsv* instead of *.csv*
 ### clients.csv
 Columns: `id`, `name`,	`revendor_id`
 
@@ -22,5 +23,5 @@ Columns: `id`,	`campaign_id`,	`client_id`,	`product_id`,	`discount`,	`quantity`,
 ### products.csv
 Columns: `id`,	`brand_id`,	`campaign_id`,	`page`,	`code`,	`description`,	`cost_price`,	`sale_price,`	`profit`
 
-###revendors.csv
+### revendors.csv
 Columns: `id`,	`name`
