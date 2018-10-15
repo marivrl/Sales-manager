@@ -42,9 +42,18 @@ def find_product(brand_id, code):
     print(brand_id, code)
     try:
 #         print(dfProducts.loc[(brand_id, code),['description', 'cost_price', 'sale_price']].to_string())
-        return (dfProducts.loc[(brand_id, code)][['description','cost_price','sale_price']])
-    except KeyError:
+        product = (dfProducts.loc[(brand_id, code)][['description','cost_price','sale_price']])
+        print(len(product),'+++++++++++')
+    except:
+        product = ''
         print('Product not found')
+
+    if len(product) > 0:
+        product = product.reset_index()
+        print(product.loc[0])
+        return product.loc[0]
+    else:
+        return product
 
 def add_product():
     dfProducts = pd.read_csv('data/products.csv', sep='\t').set_index('id')
@@ -66,48 +75,53 @@ def add_product():
 
     insert = True
     while insert:
-        p_id = len(dfProducts)
+        p_id = len(dfProducts)+1
         p_brand_id = dfCampaigns.set_index('id').loc[campaign_id]['brand_id']
-        p_page = input('page:')
+        #p_page = input('page:')
+        p_page = ''
         p_code = input('code:')
 
         product = find_product(int(p_brand_id), int(p_code))
 
-        if product:
+        if len(product)>0:
+            p_cost = product['cost_price']
+            if type(p_cost)==pd.DataFrame:
+                p_cost = p_cost.reset_index().loc[0, 'cost_price']
             ans = input('cost price (or enter to R${}):'
-                        .format(str(product.loc[int(p_brand_id), int(p_code)]['cost_price'])))
+                        .format(str(p_cost)))
             if ans:
                 p_cost = float(ans)
-            else:
-                p_cost = float(product.loc[int(p_brand_id), int(p_code)]['cost_price'])
         else:
             p_cost = float(input('cost price:'))
 
 
         p_sale = -1
         while p_sale < p_cost:
-            if product:
+            if len(product)>0:
+                p_sale = product['sale_price']
+                if type(p_sale)==pd.DataFrame:
+                    p_sale = p_sale.reset_index().loc[0, 'sale_price']
+
                 ans = input('sale price (or enter to R${}):'
-                        .format(str(product.loc[int(p_brand_id), int(p_code)]['sale_price'])))
+                        .format(str(p_sale)))
 
                 if ans:
                     p_sale = float(ans)
-                else:
-                    p_sale = float(product.loc[int(p_brand_id), int(p_code)]['sale_price'])
             else:
                 p_sale = float(input('sale price:'))
 
         p_profit = float(p_sale) - float(p_cost)
 
 
-        if product:
+        if len(product)>0:
+            p_description = product['description']
+            if type(p_description)==pd.DataFrame:
+                p_description = p_description.reset_index().loc[0, 'description']
             ans = input('description (or enter to "{}"):'
-                        .format(str(product.loc[int(p_brand_id), int(p_code)]['description'])))
+                        .format(p_description))
 
             if ans:
                 p_description = ans
-            else:
-                p_description = product.loc[int(p_brand_id), int(p_code)]['description']
         else:
             p_description = input('description:')
 
@@ -274,6 +288,7 @@ def add_item():
 
         cost_price = dfProducts.loc[(product_code, campaign_id), 'cost_price']
 
+        print(cost_price)
         if i_discount == 1:
             reg_sale_price = (dfProducts
                               .loc[(product_code, campaign_id), 'sale_price'])
@@ -283,7 +298,9 @@ def add_item():
                             .loc[(product_code, campaign_id), 'sale_price'])
                       * (1-i_discount))
 
-        profit = round(sale_price - cost_price, 2)
+
+        profit = round(float(sale_price) - float(cost_price), 2)
+
         while profit < 0:
             print('!!!Not applicable discount!!!', sale_price, cost_price, profit)
             i_discount = float(input('discount:'))
